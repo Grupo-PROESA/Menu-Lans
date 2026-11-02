@@ -2591,7 +2591,9 @@ function updateCountdown() {
   } else {
     banner.style.background = '#d4edda';
     banner.style.color = '#155724';
-    banner.textContent = 'Pedidos abiertos: siempre para el dia siguiente en adelante. El dia de hoy ya no se puede pedir ni cancelar.';
+    banner.textContent = enVentanaHoy()
+      ? 'Solo hoy: puedes pedir la comida de hoy hasta las 12:30 PM.'
+      : 'Pedidos abiertos: siempre para el dia siguiente en adelante. El dia de hoy ya no se puede pedir ni cancelar.';
   }
 }
 
@@ -2615,6 +2617,11 @@ setInterval(checkOrderLock, 60000);
 
 
 
+// Ventana especial (pedido de Talento Humano, 2 nov 2026): ese dia se puede pedir el mismo dia
+// de 9:00 a 12:30 hora de Mexico (UTC-6). Debe coincidir con ventanaEspecialHoy() en firestore.rules.
+const VENTANA_HOY = { desde: Date.UTC(2026, 10, 2, 15, 0), hasta: Date.UTC(2026, 10, 2, 18, 30) };
+function enVentanaHoy() { const t = Date.now(); return t >= VENTANA_HOY.desde && t < VENTANA_HOY.hasta; }
+
 function diaYaPaso(diaNombre) {
   const menuDia = menuData.dias?.find(d => d.dia === diaNombre);
   if (!menuDia) return true;
@@ -2626,6 +2633,7 @@ function diaYaPaso(diaNombre) {
   const ahora = new Date();
   const hoy = new Date(ahora); hoy.setHours(0,0,0,0);
   fechaDia.setHours(0,0,0,0);
+  if (fechaDia.getTime() === hoy.getTime() && enVentanaHoy()) return false;
   // Hoy y dias anteriores ya no se tocan: los pedidos son para el dia siguiente en adelante
   return fechaDia <= hoy;
 }

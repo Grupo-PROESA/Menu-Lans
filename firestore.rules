@@ -77,9 +77,15 @@ service cloud.firestore {
       return 'mesNum' in m && m.dias.size() > 0
         && timestamp.date(m.anio, m.mesNum, m.dias[0].fecha) > request.time;
     }
+    // Ventana especial (pedido de Talento Humano, Axel Avila, 2 nov 2026): ese dia se puede
+    // pedir y cancelar el mismo dia de 9:00 a 12:30 hora de Mexico. Se cierra sola.
+    function ventanaEspecialHoy() {
+      return request.time >= timestamp.value('2026-11-02T15:00:00Z')
+        && request.time < timestamp.value('2026-11-02T18:30:00Z');
+    }
     // Al borrar el pedido completo, no puede incluir el dia de hoy
     function noQuitaHoy() {
-      return menuEsFuturo() || !(hoyNombre() in resource.data.detalle);
+      return menuEsFuturo() || ventanaEspecialHoy() || !(hoyNombre() in resource.data.detalle);
     }
 
     // La semana 'AAAA-MM-DD' es la del menu publicado (fecha de su primer dia)
@@ -102,6 +108,7 @@ service cloud.firestore {
       let viejo = /databases/$(db)/documents/orders/$(d.numEmpleado);
       let hayViejo = resource == null && d.semana == '2026-10-05' && exists(viejo);
       return menuEsFuturo()
+        || ventanaEspecialHoy()
         || (resource != null && hoyIgual(h, d.detalle, resource.data.detalle))
         || (resource == null && !hayViejo && !(h in d.detalle))
         || (hayViejo && hoyIgual(h, d.detalle, get(viejo).data.detalle));
