@@ -1,4 +1,4 @@
-// Ventana de los lunes: de 9:00 a 12:30 (hora de Mexico) se puede pedir la comida del mismo dia.
+// Ventana especial solo del 2 nov 2026: de 9:00 a 12:30 (hora de Mexico) se pudo pedir la comida del mismo dia.
 // Las reglas usan la hora real, asi que esta prueba revisa lo que toca segun el momento en que corre.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
@@ -12,20 +12,20 @@ const NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes',
 
 // Funcion de la pagina, tal cual
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const src = html.match(/function enVentanaHoy\(\) \{[\s\S]*?\n\}/)[0];
+const src = html.match(/const VENTANA_HOY = .*\n/)[0] + html.match(/function enVentanaHoy\(\) \{.*\}/)[0];
 const enVentanaEn = (iso) => {
   const RealDate = Date;
   class FakeDate extends RealDate { constructor(...a) { super(...(a.length ? a : [iso])); } }
   return new Function('Date', src + '\nreturn enVentanaHoy();')(FakeDate);
 };
 
-test('pagina: la ventana es solo lunes de 9:00 a 12:30 hora de Mexico', () => {
-  assert.equal(enVentanaEn('2026-11-02T14:59:00Z'), false); // lunes 8:59
-  assert.equal(enVentanaEn('2026-11-02T15:00:00Z'), true);  // lunes 9:00
-  assert.equal(enVentanaEn('2026-11-02T18:29:00Z'), true);  // lunes 12:29
-  assert.equal(enVentanaEn('2026-11-02T18:30:00Z'), false); // lunes 12:30
+test('pagina: la ventana es solo el 2 nov 2026 de 9:00 a 12:30 hora de Mexico', () => {
+  assert.equal(enVentanaEn('2026-11-02T14:59:00Z'), false); // 2 nov 8:59
+  assert.equal(enVentanaEn('2026-11-02T15:00:00Z'), true);  // 2 nov 9:00
+  assert.equal(enVentanaEn('2026-11-02T18:29:00Z'), true);  // 2 nov 12:29
+  assert.equal(enVentanaEn('2026-11-02T18:30:00Z'), false); // 2 nov 12:30
   assert.equal(enVentanaEn('2026-11-03T16:00:00Z'), false); // martes 10:00
-  assert.equal(enVentanaEn('2026-11-09T16:00:00Z'), true);  // otro lunes 10:00
+  assert.equal(enVentanaEn('2026-11-09T16:00:00Z'), false); // el lunes siguiente ya no
 });
 
 let env;
