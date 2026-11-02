@@ -2591,7 +2591,9 @@ function updateCountdown() {
   } else {
     banner.style.background = '#d4edda';
     banner.style.color = '#155724';
-    banner.textContent = 'Pedidos abiertos: siempre para el dia siguiente en adelante. El dia de hoy ya no se puede pedir ni cancelar.';
+    banner.textContent = enVentanaHoy()
+      ? 'Hoy es lunes: puedes pedir la comida de hoy hasta las 12:30 PM.'
+      : 'Pedidos abiertos: siempre para el dia siguiente en adelante. El dia de hoy ya no se puede pedir ni cancelar.';
   }
 }
 
@@ -2615,6 +2617,14 @@ setInterval(checkOrderLock, 60000);
 
 
 
+// Ventana de los lunes (pedido de Talento Humano, 2 nov 2026): los lunes de 9:00 a 12:30 hora
+// de Mexico (15:00 a 18:30 UTC) se puede pedir el mismo dia. Igual que ventanaLunes() en firestore.rules.
+function enVentanaHoy() {
+  const t = new Date();
+  const min = t.getUTCHours() * 60 + t.getUTCMinutes();
+  return t.getUTCDay() === 1 && min >= 900 && min < 1110;
+}
+
 function diaYaPaso(diaNombre) {
   const menuDia = menuData.dias?.find(d => d.dia === diaNombre);
   if (!menuDia) return true;
@@ -2626,6 +2636,7 @@ function diaYaPaso(diaNombre) {
   const ahora = new Date();
   const hoy = new Date(ahora); hoy.setHours(0,0,0,0);
   fechaDia.setHours(0,0,0,0);
+  if (fechaDia.getTime() === hoy.getTime() && enVentanaHoy()) return false;
   // Hoy y dias anteriores ya no se tocan: los pedidos son para el dia siguiente en adelante
   return fechaDia <= hoy;
 }

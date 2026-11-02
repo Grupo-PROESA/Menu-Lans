@@ -15,6 +15,7 @@ rules_version = '2';
 //      se puede pedir y cancelar a cualquier hora y cualquier dia,
 //      SIEMPRE para el dia siguiente en adelante. El dia de hoy nunca se agrega
 //      ni se quita de un pedido (salvo super). Hora de Mexico (UTC-6).
+//      Excepcion: los lunes de 9:00 a 12:30 si se puede pedir el mismo dia (2026-11-02).
 //  - Pedidos por semana: pedidos/{semana}_{numEmp}, semana = fecha del primer dia del menu
 //    ('AAAA-MM-DD'). Solo se escribe la semana del menu publicado; las anteriores quedan guardadas.
 //    orders/{numEmp} es el formato anterior (semana del 5 de octubre 2026): ya no se escribe.
@@ -77,9 +78,16 @@ service cloud.firestore {
       return 'mesNum' in m && m.dias.size() > 0
         && timestamp.date(m.anio, m.mesNum, m.dias[0].fecha) > request.time;
     }
+    // Ventana de los lunes (pedido de Talento Humano, Axel Avila, 2 nov 2026): los lunes de
+    // 9:00 a 12:30 hora de Mexico tambien se puede pedir y cancelar la comida del mismo dia.
+    // 9:00 a 12:30 en Mexico (UTC-6) es 15:00 a 18:30 UTC del mismo lunes.
+    function ventanaLunes() {
+      let min = request.time.hours() * 60 + request.time.minutes();
+      return request.time.dayOfWeek() == 1 && min >= 900 && min < 1110;
+    }
     // Al borrar el pedido completo, no puede incluir el dia de hoy
     function noQuitaHoy() {
-      return menuEsFuturo() || !(hoyNombre() in resource.data.detalle);
+      return menuEsFuturo() || ventanaLunes() || !(hoyNombre() in resource.data.detalle);
     }
 
     // La semana 'AAAA-MM-DD' es la del menu publicado (fecha de su primer dia)
@@ -102,6 +110,7 @@ service cloud.firestore {
       let viejo = /databases/$(db)/documents/orders/$(d.numEmpleado);
       let hayViejo = resource == null && d.semana == '2026-10-05' && exists(viejo);
       return menuEsFuturo()
+        || ventanaLunes()
         || (resource != null && hoyIgual(h, d.detalle, resource.data.detalle))
         || (resource == null && !hayViejo && !(h in d.detalle))
         || (hayViejo && hoyIgual(h, d.detalle, get(viejo).data.detalle));
