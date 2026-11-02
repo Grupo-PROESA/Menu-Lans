@@ -2,7 +2,7 @@
   "name": "menu-lans-rules-tests",
   "private": true,
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project demo-menu-lans \"node --test rules.test.js ventana-lunes.test.js\""
+    "test": "firebase emulators:exec --only firestore --project demo-menu-lans \"node --test rules.test.js ventana-hoy.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",

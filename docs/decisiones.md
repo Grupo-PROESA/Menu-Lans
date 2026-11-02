@@ -11,7 +11,7 @@ Decisiones de negocio y técnicas relevantes de la app, con fecha y quién decid
 | 2026-10-21 | El acceso de colaboradores es desde el Gestor de Personal (Proesa-Teams), no desde el portal: el Gestor manda un token HS256 con el número de empleado (`HANDOFF_SECRET`). Sustituye a PROESA Gateway para esta app | Luis (TI) |
 | 2026-10-21 | Reglas de Firestore: cada colaborador solo lee, pide, modifica y cancela su propio pedido. Comedor y RRHH con PIN | Jorge Anaya |
 | 2026-10-21 | Los proyectos de Firebase pasan a la cuenta de empresa | Jorge Anaya |
-| 2026-11-02 | Los lunes de 9:00 a 12:30 se puede pedir y cancelar la comida del mismo día | Talento Humano (Axel Ávila), Jorge Anaya |
+| 2026-11-02 | Solo ese día, de 9:00 a 12:30, se puede pedir y cancelar la comida del mismo día por un problema con el menú. Primero se publicó para todos los lunes y el mismo día se corrigió a una sola vez | Talento Humano (Axel Ávila), Jorge Anaya |
 
 Excepciones al playbook (R1, R2, R3, R5): ver `CLAUDE.md`. Aprobadas por Luis (TI) en octubre de 2026,
 sin issue formal en el repo del playbook.

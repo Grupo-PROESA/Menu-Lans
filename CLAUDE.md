@@ -44,9 +44,9 @@ Los PIN viven en Firestore `config/secrets` y se validan en `firestore.rules` al
 - **Pedir y cancelar a cualquier hora, siempre del día siguiente en adelante.** El día de hoy nunca se
   agrega ni se quita (lo valida `firestore.rules` en hora de México). Acordado con Talento Humano el
   25 sep 2026.
-- **Excepción de los lunes:** los lunes de 9:00 a 12:30 (hora de México) también se puede pedir y
-  cancelar la comida del mismo día (`ventanaLunes()` en `firestore.rules` y `enVentanaHoy()` en
-  `index.html`, deben coincidir). Pedido de Talento Humano (Axel Ávila) del 2 nov 2026.
+- **Excepción de una sola vez (2 nov 2026):** ese día, de 9:00 a 12:30, se pudo pedir y cancelar la
+  comida del mismo día por un problema con el menú. Pedido de Talento Humano (Axel Ávila). Queda en
+  `ventanaEspecialHoy()` (`firestore.rules`) y `enVentanaHoy()` (`index.html`), ya sin efecto.
 - **Hora en que pasa:** el turno de día elige por día una hora de 12:30 a 22:00, cada media hora
   (`HORARIOS_RECOGER`, pedido de Talento Humano del 7 oct 2026).
 - **Pedidos por semana que no se borran:** cada semana queda guardada y el panel elige la semana.
@@ -67,7 +67,7 @@ No ofrece datos a otras apps (ver `docs/contrato.md`). Lo que **consume**:
 - Reglas de acceso a los datos: `firestore.rules` (`firebase deploy --only firestore:rules`).
 - Entrada desde el Gestor: `functions/index.js` (Cloud Function `ssoCallback`, Node 22, 2nd gen).
 - Carga del catálogo y turnos nocturnos: `setup/cargar_catalogo.mjs`, `setup/marcar_nocturnos.mjs`.
-- Pruebas: `tests/rules.test.js` (reglas, emulador de Firestore) y `tests/ventana-lunes.test.js`.
+- Pruebas: `tests/rules.test.js` (reglas, emulador de Firestore) y `tests/ventana-hoy.test.js`.
 - Publicación: GitHub Pages publica `main` solo. La Function y las reglas se despliegan a mano con
   firebase CLI (ver README, sección 6).
 

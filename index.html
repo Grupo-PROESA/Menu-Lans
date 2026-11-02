@@ -2592,7 +2592,7 @@ function updateCountdown() {
     banner.style.background = '#d4edda';
     banner.style.color = '#155724';
     banner.textContent = enVentanaHoy()
-      ? 'Hoy es lunes: puedes pedir la comida de hoy hasta las 12:30 PM.'
+      ? 'Solo hoy: puedes pedir la comida de hoy hasta las 12:30 PM.'
       : 'Pedidos abiertos: siempre para el dia siguiente en adelante. El dia de hoy ya no se puede pedir ni cancelar.';
   }
 }
@@ -2617,13 +2617,11 @@ setInterval(checkOrderLock, 60000);
 
 
 
-// Ventana de los lunes (pedido de Talento Humano, 2 nov 2026): los lunes de 9:00 a 12:30 hora
-// de Mexico (15:00 a 18:30 UTC) se puede pedir el mismo dia. Igual que ventanaLunes() en firestore.rules.
-function enVentanaHoy() {
-  const t = new Date();
-  const min = t.getUTCHours() * 60 + t.getUTCMinutes();
-  return t.getUTCDay() === 1 && min >= 900 && min < 1110;
-}
+// Ventana especial solo del 2 nov 2026 (pedido de Talento Humano, por un problema con el menu):
+// ese dia se puede pedir el mismo dia de 9:00 a 12:30 hora de Mexico (15:00 a 18:30 UTC).
+// Igual que ventanaEspecialHoy() en firestore.rules. Se cierra sola y no se repite.
+const VENTANA_HOY = { desde: Date.UTC(2026, 10, 2, 15, 0), hasta: Date.UTC(2026, 10, 2, 18, 30) };
+function enVentanaHoy() { const t = new Date().getTime(); return t >= VENTANA_HOY.desde && t < VENTANA_HOY.hasta; }
 
 function diaYaPaso(diaNombre) {
   const menuDia = menuData.dias?.find(d => d.dia === diaNombre);
