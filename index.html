@@ -260,6 +260,10 @@ body {
 .order-toggle:hover { border-color: var(--accent); color: var(--accent); }
 .order-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .order-toggle.locked { opacity: 0.7; cursor: default; pointer-events: none; }
+/* Dia que el colaborador ya tiene pedido: se ve distinto de "Pedir" y de un dia recien elegido */
+.order-toggle.ya-pedido { background: #e6f4ee; border-color: var(--green); color: var(--green-dark); cursor: default; }
+.order-toggle.ya-pedido:hover { border-color: var(--green); color: var(--green-dark); }
+.ya-pedido-nota { margin-top: 6px; font-size: 0.75rem; color: var(--muted); text-align: center; }
 
 /* SUMMARY BAR */
 .summary-bar {
@@ -1278,6 +1282,7 @@ let quantities = {};
 let selections = {};   // por dia: 'principal' | 'alternativa' | 'ensalada'
 let sideSel = {};      // por dia: 'g1' | 'g2' (guarnicion elegida)
 let horaSel = {};      // por dia: hora en que pasara por su comida ('14:00')
+let horaCambiada = {}; // por dia ya pedido: true si eligio otra hora (se manda como cambio)
 let semanaVista = null;   // admin: 'AAAA-MM-DD' de cualquier dia de la semana que se esta viendo
 let adminAuth = false;
 let adminLevel = null;   // 'admin' | 'super'
@@ -1546,7 +1551,8 @@ function renderMenu() {
   grid.innerHTML = '';
   grid.style.gridTemplateColumns = `repeat(${Math.max(dias.length, 1)}, 1fr)`;
   const numEmpNorm = normEmp(document.getElementById('numEmpleado').value.trim());
-  const pedidoPrevioActivo = !!(numEmpNorm && miPedido && normEmp(miPedido.numEmpleado) === numEmpNorm);
+  // Dias que este numero ya tiene pedidos: se marcan "Ya pedido" y no cuentan en la barra de abajo
+  const diasYaPedidos = (numEmpNorm && miPedido && normEmp(miPedido.numEmpleado) === numEmpNorm && miPedido.detalle) || {};
   const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const pideHora = !esNocturnoActual();   // la hora para pasar es solo del turno de dia
 
@@ -1555,8 +1561,10 @@ function renderMenu() {
     if (!selections[i]) selections[i] = 'principal';
     if (!sideSel[i]) sideSel[i] = 'g1';
     const passed = !adminVisible && isDayPassed(d.dia);
-    const yaPedido = quantities[i] > 0 && pedidoPrevioActivo;
-    if (passed && !yaPedido) quantities[i] = 0;
+    const yaPedido = !!diasYaPedidos[d.dia];
+    if (yaPedido || passed) quantities[i] = 0;
+    // En un dia ya pedido el platillo no se cambia aqui: al tocarlo se explica como quitarlo
+    const clic = (fn) => yaPedido ? 'avisoYaPedido()' : fn;
     const mesLargo = getDisplayMonth(d.fecha, menuData);
     const mesCorto = MES_CORTO[MONTH_NAMES.indexOf(mesLargo)] || mesLargo;
 
@@ -1579,8 +1587,8 @@ function renderMenu() {
         <div class="alt-section" style="${apagado}">
           <div class="alt-label">Elige tu guisado${conEnsalada ? ' (no aplica con ensalada)' : ''}</div>
           <div class="alt-options">
-            ${opt('opt', 'principal', d.platoFuerte, hasG2(d) ? '' : (d.complemento || ''), sel==='principal', `selectOption(${i},'principal')`)}
-            ${hasAlt(d) ? opt('opt', 'alternativa', d.platoAlternativo, hasG2(d) ? '' : (d.complemento || ''), sel==='alternativa', `selectOption(${i},'alternativa')`) : ''}
+            ${opt('opt', 'principal', d.platoFuerte, hasG2(d) ? '' : (d.complemento || ''), sel==='principal', clic(`selectOption(${i},'principal')`))}
+            ${hasAlt(d) ? opt('opt', 'alternativa', d.platoAlternativo, hasG2(d) ? '' : (d.complemento || ''), sel==='alternativa', clic(`selectOption(${i},'alternativa')`)) : ''}
           </div>
         </div>`;
       // 2. Guarnicion (se apaga si eligio ensalada)
@@ -1590,8 +1598,8 @@ function renderMenu() {
         <div class="alt-section" style="${apagado}">
           <div class="alt-label">Elige tu guarnicion${conEnsalada ? ' (no aplica con ensalada)' : ''}</div>
           <div class="alt-options">
-            ${opt('side', 'g1', d.complemento, '', sd==='g1' && !conEnsalada, `selectSide(${i},'g1')`)}
-            ${opt('side', 'g2', d.guarnicion2, '', sd==='g2' && !conEnsalada, `selectSide(${i},'g2')`)}
+            ${opt('side', 'g1', d.complemento, '', sd==='g1' && !conEnsalada, clic(`selectSide(${i},'g1')`))}
+            ${opt('side', 'g2', d.guarnicion2, '', sd==='g2' && !conEnsalada, clic(`selectSide(${i},'g2')`))}
           </div>
         </div>`;
       }
@@ -1601,7 +1609,7 @@ function renderMenu() {
         <div class="alt-section" style="background:rgba(22,160,133,0.06);">
           <div class="alt-label" style="color:#16a085">O en su lugar, plato completo</div>
           <div class="alt-options">
-            <label class="alt-option ${conEnsalada?'selected':''}" style="${conEnsalada?'border-color:#16a085;background:rgba(22,160,133,0.08);':''}" onclick="selectOption(${i}, ${conEnsalada ? "'principal'" : "'ensalada'"})">
+            <label class="alt-option ${conEnsalada?'selected':''}" style="${conEnsalada?'border-color:#16a085;background:rgba(22,160,133,0.08);':''}" onclick="${clic(`selectOption(${i}, ${conEnsalada ? "'principal'" : "'ensalada'"})`)}">
               <input type="checkbox" ${conEnsalada?'checked':''} style="accent-color:#16a085" />
               <span class="alt-option-text"><strong>&#129367; ${esc(d.ensalada)}</strong><br><small>Sin guisado ni guarnicion</small></span>
             </label>
@@ -1631,17 +1639,25 @@ function renderMenu() {
         <div class="meal-name">${esc(d.postre)}</div>
       </div>
       <div class="day-order">
-        <button class="order-toggle ${quantities[i]>0?'active':''} ${passed && yaPedido ? 'locked' : ''}" id="qty-${i}" onclick="toggleDay(${i})">
-          ${passed && yaPedido ? '&#10003; Ya pedido' : quantities[i]>0 ? '&#10003; Pedido' : 'Pedir'}
-        </button>
-        ${quantities[i] > 0 && pideHora ? (passed && yaPedido
+        ${yaPedido ? `
+        <button class="order-toggle ya-pedido" id="qty-${i}" onclick="avisoYaPedido()">&#10003; Ya pedido</button>
+        ${pideHora ? (passed
           ? (horaSel[i] ? `<div class="hora-recoger">Pasas a las <strong>${esc(horaSel[i])}</strong></div>` : '')
           : `<label class="hora-recoger">Hora en que pasas
+              <select onchange="selectHoraPedido(${i}, this.value)">
+                ${HORARIOS_RECOGER.map(h => `<option ${horaSel[i] === h ? 'selected' : ''}>${h}</option>`).join('')}
+              </select>
+            </label>`) : ''}
+        ${passed ? '' : '<div class="ya-pedido-nota">Para quitarlo usa Cancelar Pedido</div>'}` : `
+        <button class="order-toggle ${quantities[i]>0?'active':''}" id="qty-${i}" onclick="toggleDay(${i})">
+          ${quantities[i]>0 ? '&#10003; Pedido' : 'Pedir'}
+        </button>
+        ${quantities[i] > 0 && pideHora ? `<label class="hora-recoger">Hora en que pasas
               <select onchange="selectHora(${i}, this.value)" class="${horaSel[i] ? '' : 'falta'}">
                 <option value="">Elige</option>
                 ${HORARIOS_RECOGER.map(h => `<option ${horaSel[i] === h ? 'selected' : ''}>${h}</option>`).join('')}
               </select>
-            </label>`) : ''}
+            </label>` : ''}`}
       </div>`;
     grid.appendChild(card);
   });
@@ -1665,13 +1681,13 @@ function preMarcarDias() {
   selections = {};
   sideSel = {};
   horaSel = {};
+  horaCambiada = {};
   if (num) {
     const numNorm = normEmp(num);
     const pedido = miPedido && normEmp(miPedido.numEmpleado) === numNorm ? miPedido : null;
     if (pedido && pedido.detalle) {
       menuData.dias.forEach((d, i) => {
         if (pedido.detalle[d.dia]) {
-          quantities[i] = 1;
           const op = pedido.opciones && pedido.opciones[d.dia];
           if (op) selections[i] = (hasEns(d) && op === d.ensalada) ? 'ensalada' : (hasAlt(d) && op === d.platoAlternativo) ? 'alternativa' : 'principal';
           const g = pedido.guarniciones && pedido.guarniciones[d.dia];
@@ -1688,6 +1704,15 @@ function preMarcarDias() {
 function selectOption(i, opt) { selections[i] = opt; renderMenu(); }
 function selectSide(i, side) { sideSel[i] = side; renderMenu(); }
 function selectHora(i, h) { horaSel[i] = h; renderMenu(); }
+// Cambiar la hora de un dia ya pedido (no de hoy) se manda como cambio con "Enviar Pedido"
+function selectHoraPedido(i, h) {
+  horaSel[i] = h;
+  const previa = miPedido && miPedido.horarios && miPedido.horarios[menuData.dias[i].dia];
+  horaCambiada[i] = h !== previa;
+  renderMenu();
+}
+function avisoYaPedido() { showToast('Ese dia ya lo tienes pedido. Para quitarlo usa Cancelar Pedido'); }
+function diasConHoraCambiada() { return menuData.dias.filter((d, i) => horaCambiada[i]).map(d => d.dia); }
 
 function toggleDay(i) {
   if (!adminVisible && menuData.dias[i] && isDayPassed(menuData.dias[i].dia)) return;
@@ -1698,10 +1723,14 @@ function toggleDay(i) {
 function updateSummary() {
   const total = Object.values(quantities).reduce((a,b)=>a+b, 0);
   const bar = document.getElementById('summaryBar');
-  if (total > 0) {
+  const cambios = diasConHoraCambiada();
+  if (total > 0 || cambios.length) {
     bar.classList.add('visible');
     const det = menuData.dias.map((d,i) => quantities[i]>0 ? d.dia : null).filter(Boolean).join(' | ');
-    document.getElementById('summaryText').innerHTML = `<strong>${total}</strong> comida${total!==1?'s':''} &middot; ${esc(det)}`;
+    const partes = [];
+    if (total > 0) partes.push(`<strong>${total}</strong> comida${total!==1?'s':''} &middot; ${esc(det)}`);
+    if (cambios.length) partes.push(`Cambio de hora: ${esc(cambios.join(' | '))}`);
+    document.getElementById('summaryText').innerHTML = partes.join('<br>');
   } else {
     bar.classList.remove('visible');
   }
@@ -1741,7 +1770,7 @@ async function enviarPedido() {
   // Se guarda el nombre oficial del catalogo para que los reportes salgan uniformes
   const nombre = catMatch ? catMatch.nombre : nombreEscrito;
   const total = Object.values(quantities).reduce((a,b)=>a+b, 0);
-  if (total === 0) return;
+  if (total === 0 && !diasConHoraCambiada().length) return;
 
   const pideHora = !esNocturno(numEmp);   // nocturnos: contenedor rotulado, sin hora
   const sinHora = !pideHora ? [] : menuData.dias.filter((d, i) => quantities[i] > 0 && (adminVisible || !isDayPassed(d.dia)) && !horaSel[i]).map(d => d.dia);
@@ -1764,6 +1793,10 @@ async function enviarPedido() {
         const g = hasG2(d) ? guarnicionElegida(d, selections[i], sideSel[i]) : '';
         if (g) nuevasGuarn[d.dia] = g;
       }
+    } else if (horaCambiada[i] && pideHora && (adminVisible || !isDayPassed(d.dia))) {
+      // Dia ya pedido al que solo le cambio la hora: el platillo se queda como estaba
+      nuevosDias[d.dia] = 1;
+      nuevasHoras[d.dia] = horaSel[i];
     }
   });
   if (Object.keys(nuevosDias).length === 0) { showToast('No hay dias disponibles para pedir'); return; }
@@ -1814,6 +1847,7 @@ function cerrarModal() {
   selections = {};
   sideSel = {};
   horaSel = {};
+  horaCambiada = {};
   ultimosDiasNuevos = null;
   document.getElementById('nombreInput').value = '';
   document.getElementById('numEmpleado').value = '';
@@ -2043,7 +2077,7 @@ async function guardarMenu() {
   menuData = { mes, mesNum: MONTH_NAMES.indexOf(mes) + 1, semana, anio, dias };
 
   // Los pedidos se guardan por semana: al publicar una semana nueva no se borra nada
-  quantities = {}; selections = {}; sideSel = {}; horaSel = {};
+  quantities = {}; selections = {}; sideSel = {}; horaSel = {}; horaCambiada = {};
   const saved = await saveMenuToCloud();
   if (!saved) { showToast('Error al guardar: ' + lastFsError); return; }
   showToast('Menu publicado');
