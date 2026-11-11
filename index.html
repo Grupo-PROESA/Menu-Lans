@@ -265,22 +265,6 @@ body {
 .order-toggle.ya-pedido:hover { border-color: var(--green); color: var(--green-dark); }
 .ya-pedido-nota { margin-top: 6px; font-size: 0.75rem; color: var(--muted); text-align: center; }
 
-/* SUMMARY BAR */
-.summary-bar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: rgba(255,255,255,0.96);
-  backdrop-filter: blur(15px);
-  border-top: 1px solid var(--border);
-  padding: 14px 20px;
-  display: flex; align-items: center; justify-content: center; gap: 20px;
-  z-index: 100;
-  transform: translateY(100%);
-  transition: transform 0.3s ease;
-  flex-wrap: wrap;
-}
-.summary-bar.visible { transform: translateY(0); }
-.summary-total { font-size: 0.95rem; color: var(--text); }
-.summary-total strong { color: var(--primary); }
 .btn-send {
   background: linear-gradient(135deg, var(--primary), var(--accent));
   color: #fff; border: none;
@@ -413,7 +397,6 @@ body {
 @media (max-width: 600px) {
   .header h1 { font-size: 1.6rem; }
   .menu-grid { grid-template-columns: 1fr; padding: 15px; gap: 15px; }
-  .summary-bar { flex-direction: column; gap: 10px; padding: 12px 15px; }
   .modal { padding: 20px; }
   .form-row { flex-direction: column; }
   .form-group { min-width: 100%; }
@@ -433,7 +416,6 @@ body {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
 .ordering-locked .week-wrap,
-.ordering-locked .summary-bar,
 .ordering-locked .water-note { opacity: 0.3; pointer-events: none; user-select: none; }
 
 /* DAY PASSED */
@@ -730,11 +712,6 @@ body {
   </div>
 </div>
 
-<!-- SUMMARY BAR -->
-<div class="summary-bar" id="summaryBar">
-  <div class="summary-total" id="summaryText"></div>
-  <button class="btn-send" onclick="enviarPedido()">Enviar Pedido</button>
-</div>
 
 <button class="cancel-btn-float hidden" id="cancelBtnFloat" onclick="toggleCancelPanel()">Cancelar Pedido</button>
 
@@ -1535,7 +1512,6 @@ function renderMenu() {
     g.innerHTML = '<div class="comments-empty" style="padding:40px 16px;font-size:1rem;">Aun no hay menu publicado para esta semana.<br>Vuelve a intentar en unos minutos.</div>';
     const hint = document.querySelector('.swipe-hint'); if (hint) hint.style.display = 'none';
     quantities = {}; selections = {};
-    updateSummary();
     return;
   }
   { const hint = document.querySelector('.swipe-hint'); if (hint) hint.style.display = ''; }
@@ -1649,15 +1625,13 @@ function renderMenu() {
               </select>
             </label>`) : ''}
         ${passed ? '' : '<div class="ya-pedido-nota">Para quitarlo usa Cancelar Pedido</div>'}` : `
-        <button class="order-toggle ${quantities[i]>0?'active':''}" id="qty-${i}" onclick="toggleDay(${i})">
-          ${quantities[i]>0 ? '&#10003; Pedido' : 'Pedir'}
-        </button>
-        ${quantities[i] > 0 && pideHora ? `<label class="hora-recoger">Hora en que pasas
+        ${pideHora && !passed ? `<label class="hora-recoger">Hora en que pasas
               <select onchange="selectHora(${i}, this.value)" class="${horaSel[i] ? '' : 'falta'}">
                 <option value="">Elige</option>
                 ${HORARIOS_RECOGER.map(h => `<option ${horaSel[i] === h ? 'selected' : ''}>${h}</option>`).join('')}
               </select>
-            </label>` : ''}`}
+            </label>` : ''}
+        <button class="order-toggle" id="qty-${i}" onclick="pedirDia(${i})">Pedir</button>`}
       </div>`;
     grid.appendChild(card);
   });
@@ -1672,7 +1646,6 @@ function renderMenu() {
       menuCarouselReady = true;
     }
   }
-  updateSummary();
 }
 
 function preMarcarDias() {
@@ -1704,35 +1677,37 @@ function preMarcarDias() {
 function selectOption(i, opt) { selections[i] = opt; renderMenu(); }
 function selectSide(i, side) { sideSel[i] = side; renderMenu(); }
 function selectHora(i, h) { horaSel[i] = h; renderMenu(); }
-// Cambiar la hora de un dia ya pedido (no de hoy) se manda como cambio con "Enviar Pedido"
-function selectHoraPedido(i, h) {
-  horaSel[i] = h;
+// Cambiar la hora de un dia ya pedido (no de hoy) se guarda en ese momento
+async function selectHoraPedido(i, h) {
   const previa = miPedido && miPedido.horarios && miPedido.horarios[menuData.dias[i].dia];
-  horaCambiada[i] = h !== previa;
-  renderMenu();
+  if (h === previa || guardandoPedido) return;
+  horaSel[i] = h;
+  horaCambiada = { [i]: true };
+  await guardarPedido();
+  preMarcarDias();   // la hora mostrada queda como la guardada (o como estaba si fallo)
 }
 function avisoYaPedido() { showToast('Ese dia ya lo tienes pedido. Para quitarlo usa Cancelar Pedido'); }
 function diasConHoraCambiada() { return menuData.dias.filter((d, i) => horaCambiada[i]).map(d => d.dia); }
 
-function toggleDay(i) {
+// "Pedir" guarda ese dia en ese momento (antes habia que confirmar con "Enviar Pedido" y mucha
+// gente no lo hacia: pedido de Talento Humano, Axel Avila, nov 2026)
+let guardandoPedido = false;
+async function pedirDia(i) {
+  if (guardandoPedido) return;
   if (!adminVisible && menuData.dias[i] && isDayPassed(menuData.dias[i].dia)) return;
-  quantities[i] = quantities[i] > 0 ? 0 : 1;
-  renderMenu();
+  quantities = { [i]: 1 };
+  await guardarPedido(i);
 }
-
-function updateSummary() {
-  const total = Object.values(quantities).reduce((a,b)=>a+b, 0);
-  const bar = document.getElementById('summaryBar');
-  const cambios = diasConHoraCambiada();
-  if (total > 0 || cambios.length) {
-    bar.classList.add('visible');
-    const det = menuData.dias.map((d,i) => quantities[i]>0 ? d.dia : null).filter(Boolean).join(' | ');
-    const partes = [];
-    if (total > 0) partes.push(`<strong>${total}</strong> comida${total!==1?'s':''} &middot; ${esc(det)}`);
-    if (cambios.length) partes.push(`Cambio de hora: ${esc(cambios.join(' | '))}`);
-    document.getElementById('summaryText').innerHTML = partes.join('<br>');
-  } else {
-    bar.classList.remove('visible');
+async function guardarPedido(i) {
+  guardandoPedido = true;
+  const btn = i !== undefined && document.getElementById(`qty-${i}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try { await enviarPedido(); }
+  finally {
+    guardandoPedido = false;
+    quantities = {};
+    horaCambiada = {};
+    renderMenu();
   }
 }
 
